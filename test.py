@@ -5,12 +5,13 @@ from run_scmt import run_video
 import cv2
 from write_videos import write_video
 
-results = run_video('./input/c010', save_video_name=False,
-          detection_thres=0.4,
-          iou_thres=0.7,
-          track_thres=0.6,
-          match_thres=0.4,
-          alpha_fuse=0.5)
+results = run_video('./input/c010', './reid/resnet101_ibn_a_2.pth',
+                    save_video_name=False,
+                    detection_thres=0.4,
+                    iou_thres=0.7,
+                    track_thres=0.6,
+                    match_thres=0.4,
+                    alpha_fuse=0.5)
 
 with open('./output_pkl/results.pkl', 'wb') as f:
     pickle.dump(results, f)
