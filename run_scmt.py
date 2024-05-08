@@ -42,12 +42,9 @@ def get_numpy(tensor_):
 
 class_IDS = [2, 3, 5, 7]
 
-detection_model = YOLO('yolov8x.pt')
-detection_model.to(device)
 
-reid_model = make_model(1000, pretrained_path='./reid/resnet101_ibn_a_2.pth')
-reid_model.to(device)
-def process_video(working_path, save_video=False, verbose=False, detection_thres=0.2, iou_thres=0.7, \
+def process_video(detection_model, reid_model, working_path, save_video=False, \
+                  verbose=False, detection_thres=0.2, iou_thres=0.7, \
                   track_thres=0.6, match_thres=0.4, frame_rate=10, \
                   limit=-1, alpha_fuse=0.8):
     video_path = os.path.join(working_path, 'vdo.avi')
@@ -149,12 +146,13 @@ def process_video(working_path, save_video=False, verbose=False, detection_thres
     # break
 
 
-def run_video(working_path, save_video_name=None, **kwargs):
+def run_video(working_path, reid_model_path, save_video_name=None, **kwargs):
     """
         This function is used to process a video for object tracking and returns the tracking results.
 
         Parameters:
         working_path (str): The path where the video file is located.
+        reid_model_path (str): The path where the re-identification model is located.
         save_video_name (str): The name of the video file to be saved after processing.
         **kwargs: Arbitrary keyword arguments for future extension.
 
@@ -190,7 +188,13 @@ def run_video(working_path, save_video_name=None, **kwargs):
     if 'alpha_fuse' in kwargs:
         alpha_fuse = kwargs['alpha_fuse']
 
-    tracking_results = process_video(working_path, save_video_name, verbose=False,
+    detection_model = YOLO('yolov8x.pt')
+    detection_model.to(device)
+
+    reid_model = make_model(1000, pretrained_path=reid_model_path)
+    reid_model.to(device)
+
+    tracking_results = process_video(detection_model, reid_model, working_path, save_video_name, verbose=False,
                                      detection_thres=detection_thres,
                                      iou_thres=iou_thres,
                                      track_thres=track_thres,
