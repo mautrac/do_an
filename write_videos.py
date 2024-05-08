@@ -13,7 +13,7 @@ def write_video(video_name, frame_rate, origin_video, labels):
     fontScale = 1
     color = (255, 0, 0)
     thickness = 2
-    breakpoint()
+    #breakpoint()
     j = 0
     for i in tqdm(range(length)):
         flag, orig_img = origin_video.read()
