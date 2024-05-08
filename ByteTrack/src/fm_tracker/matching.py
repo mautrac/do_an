@@ -337,13 +337,15 @@ def fuse_embed_score(cost_matrix, sim_matrix, detections, alpha=0.8):
         return cost_matrix
     #iou_sim = 1 - cost_matrix
     iou_sim = cost_matrix
-    app_cost = 1 - sim_matrix
+    app_cost = sim_matrix
 
     det_scores = np.array([det.score for det in detections])
     det_scores = np.expand_dims(det_scores, axis=0).repeat(cost_matrix.shape[0], axis=0)
     fuse_sim = alpha * iou_sim + ( det_scores * (1 - alpha) * app_cost)
+    #fuse_sim = iou_sim * (alpha * det_scores + (1 - alpha) * sim_matrix)
 
     #fuse_cost = 1 - fuse_sim
     fuse_cost = fuse_sim
+    #breakpoint()
     return fuse_cost
 

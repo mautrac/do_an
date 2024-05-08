@@ -1,22 +1,14 @@
 from ultralytics import YOLO
 import torch
-import numpy as np
 import cv2
 import os
-import pickle
 from tqdm.auto import tqdm
 
 from torchvision.transforms import v2
 
 import numpy as np
-from PIL import Image
-
-import torch.nn as nn
-from torchvision import models
-from torch.nn import init
-
 from ByteTrack.src.fm_tracker.byte_tracker import BYTETracker
-from reid.make_model import make_model
+
 
 if torch.cuda.is_available():
     device = 'cuda'
@@ -142,11 +134,12 @@ def process_video(detection_model, reid_model, working_path, save_video=False, \
                 out_video.write(orig_img)
 
         ########
+    del tracker
     return tracking_results
     # break
 
 
-def run_video(working_path, reid_model_path, save_video_name=None, **kwargs):
+def run_video(working_path, reid_model, save_video_name=None, **kwargs):
     """
         This function is used to process a video for object tracking and returns the tracking results.
 
@@ -190,9 +183,7 @@ def run_video(working_path, reid_model_path, save_video_name=None, **kwargs):
 
     detection_model = YOLO('yolov8x.pt')
     detection_model.to(device)
-
-    reid_model = make_model(1000, pretrained_path=reid_model_path)
-    reid_model.to(device)
+    detection_model.model.eval()
 
     tracking_results = process_video(detection_model, reid_model, working_path, save_video_name, verbose=False,
                                      detection_thres=detection_thres,

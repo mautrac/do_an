@@ -314,7 +314,7 @@ class BYTETracker(object):
         # dists = matching.pixel_distance(r_tracked_stracks, detections_low)
         # matches, u_track, u_detection_low = matching.linear_assignment(dists, thresh=150)
         dists = matching.iou_distance(r_tracked_stracks, detections_low)
-        matches, u_track, u_detection_low = matching.linear_assignment(dists, thresh=0.5)
+        matches, u_track, u_detection_low = matching.linear_assignment(dists, thresh=0.6)
         # dists = matching.diou_distance(r_tracked_stracks, detections_second)
         # matches, u_track, u_detection_second = matching.linear_assignment(dists, thresh=0.5)
         

@@ -19,23 +19,23 @@ root = tk.Tk()
 root.title("Application")
 root.geometry("1280x720")
 
+bg = tk.PhotoImage(file="./image/bg.bmp")
+bg_label = tk.Label( root, image = bg)
+bg_label.place(x=-5, y=-5)
+
+
 iconSave = ImageTk.PhotoImage(Image.open("image/icons8-save-50 (1).png").resize((40, 40)))
 iconCancel = ImageTk.PhotoImage(Image.open("image/icons8-cancel-16.png").resize((40, 40)))
 
 
 # Create a frame to hold the buttons
 frame = tk.Frame(root)
-frame.pack(fill=tk.BOTH, expand=True)
+frame.pack(fill=tk.CENTER, expand=True)
 
 # Configure the frame's grid to expand as the window is resized
 frame.grid_rowconfigure(0, weight=1)
 frame.grid_columnconfigure(0, weight=1)
 frame.grid_columnconfigure(1, weight=1)
-
-bg = tk.PhotoImage(file="./image/bg.bmp")
-bg_label = tk.Label( root, image = bg)
-bg_label.place(x=-5, y=-5)
-
 
 labelName = tk.Label(root, text="Click vào nút để lựa chọn theo dự đoán: ", font=('Arial', 14))
 labelName.place(relx=0.5, rely=0.1, anchor=tk.CENTER)
