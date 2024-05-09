@@ -7,19 +7,19 @@ from run_scmt import run_video
 import cv2
 from write_videos import write_video
 
-cam_folder = 'c011'
+cam_folder = 'c013'
 
 reid_model = make_model(1000, pretrained_path='./reid/resnet101_ibn_a_2.pth')
 reid_model.to('cuda')
 reid_model.eval()
 
-results = run_video(f'./input/{cam_folder}', './reid/resnet101_ibn_a_2.pth',
+results = run_video(f'./input/{cam_folder}', reid_model,
                     save_video_name=False,
-                    detection_thres=0.3,
+                    detection_thres=0.4,
                     iou_thres=0.7,
                     track_thres=0.6,
-                    match_thres=0.5,
-                    alpha_fuse=0.5,
+                    match_thres=0.35,
+                    alpha_fuse=0.3,
                     frame_rate=40)
 
 with open('./output_pkl/results.pkl', 'wb') as f:

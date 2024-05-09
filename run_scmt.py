@@ -38,7 +38,7 @@ class_IDS = [2, 3, 5, 7]
 def process_video(detection_model, reid_model, working_path, save_video=False, \
                   verbose=False, detection_thres=0.2, iou_thres=0.7, \
                   track_thres=0.6, match_thres=0.4, frame_rate=10, \
-                  limit=-1, alpha_fuse=0.8):
+                  limit=-1, alpha_fuse=0.8, **kwargs):
     video_path = os.path.join(working_path, 'vdo.avi')
     video = cv2.VideoCapture(video_path)
     length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -49,8 +49,10 @@ def process_video(detection_model, reid_model, working_path, save_video=False, \
     frame_cnt = 0
     str_path = working_path.split('/')
     cid = int(str_path[-1][1:])
+    roi = np.ones((h, w), dtype=np.uint8)
 
-    roi = cv2.imread(os.path.join(working_path, 'roi.jpg'))
+    if os.path.exists(os.path.join(working_path, 'roi.jpg')):
+        roi = cv2.imread(os.path.join(working_path, 'roi.jpg'))
 
     # dieu chinh param cho bytetrack
     # BYTETracker(track_thresh, match_thresh, frame_rate=seq_info["frame_rate"])
@@ -66,6 +68,9 @@ def process_video(detection_model, reid_model, working_path, save_video=False, \
 
     print('processing video...')
     for ix in tqdm(range(length), desc=" inner loop"):
+        if 'flag' in kwargs:
+            if kwargs['flag'] == False:
+                break
         frame_cnt += 1
         flag, orig_img = video.read()
         img2 = cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB)
@@ -184,7 +189,10 @@ def run_video(working_path, reid_model, save_video_name=None, **kwargs):
     detection_model = YOLO('yolov8x.pt')
     detection_model.to(device)
     detection_model.model.eval()
-
+    if 'flag' in kwargs:
+        flag = kwargs['flag']
+    else:
+        flag = True
     tracking_results = process_video(detection_model, reid_model, working_path, save_video_name, verbose=False,
                                      detection_thres=detection_thres,
                                      iou_thres=iou_thres,
@@ -192,7 +200,8 @@ def run_video(working_path, reid_model, save_video_name=None, **kwargs):
                                      match_thres=match_thres,
                                      frame_rate=frame_rate,
                                      limit=limit,
-                                     alpha_fuse=alpha_fuse)
+                                     alpha_fuse=alpha_fuse,
+                                     flag=flag)
 
     return tracking_results
 

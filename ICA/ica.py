@@ -1,54 +1,66 @@
-import os, sys, pdb
+import pdb
+
+from ICA.rerank import re_ranking
 import numpy as np
+import os
 import cv2
 import pickle
-import argparse
-from scipy.spatial import distance
-from scipy.optimize import linear_sum_assignment
-from rerank import re_ranking
+import sys
 
+sys.path.append('../')
 
-# The purpose of this dict is to preserve the vehicles whose travel time is possible between two ports.
-# hard constraint for refine distance matrix
-two_track_valid_pass_time_for_mask_dict = {(10, 11): [-10, 200], (11, 12): [-10, 100], (12, 13): [-30, 200],
-                                           (13, 14): [-250, 0], (13, 15): [-100, 50],
-                                           (15, 13): [-200, 50], (14, 13): [0, 300], (13, 12): [-200, 200],
-                                           (12, 11): [-50, 150], (11, 10): [-300, 150]}
+infor_path = '../input/cam_infor/'
+mask_loose_path = '../input/cam_infor/travel_time_loose_constraint.txt'
+two_track_valid_pass_time_for_mask_dict = {}
+with open(mask_loose_path, 'r') as f:
+    for line in f:
+        mask_loose_constraint = line.strip().split(' ')
+        cam_out_id = int(mask_loose_constraint[0])
+        cam_in_id = int(mask_loose_constraint[1])
+        tth_min = int(mask_loose_constraint[2])
+        tth_max = int(mask_loose_constraint[3])
+        two_track_valid_pass_time_for_mask_dict[(cam_out_id, cam_in_id)] = [tth_min, tth_max]
+
+# two_track_valid_pass_time_for_mask_dict = {(10, 11): [-10, 200], (11, 12): [-10, 100], (12, 13): [-30, 200],
+#                                            (13, 14): [-250, 0], (13, 15): [-100, 50],
+#                                            (15, 13): [-200, 50], (14, 13): [0, 300], (13, 12): [-200, 200],
+#                                            (12, 11): [-50, 150], (11, 10): [-300, 150]}
+#
+
+mask_hard_path = '../input/cam_infor/travel_time_hard_constraint.txt'
+two_track_valid_pass_time_dict = {}
+with open(mask_hard_path, 'r') as f:
+    for line in f:
+        mask_hard_constraint = line.strip().split(' ')
+        cam_out_id = int(mask_hard_constraint[0])
+        cam_in_id = int(mask_hard_constraint[1])
+        tth_min = int(mask_hard_constraint[2])
+        tth_max = int(mask_hard_constraint[3])
+        two_track_valid_pass_time_dict[(cam_out_id, cam_in_id)] = [tth_min, tth_max]
 # loose constraint for post-process
-two_track_valid_pass_time_dict = {(10, 11): [-20, 300], (11, 12): [-20, 200], (12, 13): [-40, 200],
-                                           (13, 14): [-300, 0], (13, 15): [-100, 50],
-                                           (15, 13): [-200, 50], (14, 13): [0, 350], (13, 12): [-250, 250],
-                                           (12, 11): [-80, 200], (11, 10): [-350, 200]}
+# two_track_valid_pass_time_dict = {(10, 11): [-20, 300], (11, 12): [-20, 200], (12, 13): [-40, 200],
+#                                            (13, 14): [-300, 0], (13, 15): [-100, 50],
+#                                            (15, 13): [-200, 50], (14, 13): [0, 350], (13, 12): [-250, 250],
+#                                            (12, 11): [-80, 200], (11, 10): [-350, 200]}
 
-# hyper parameters
-args_params_dict = {(10, 11): {'topk': 9, 'r_rate': 0.5, 'k1': 13, 'k2': 5, 'lambda_value': 0.7,
-                               'alpha': 0.8, 'long_time_t': 500, 'short_time_t': 500, 'num_search_times': 2},
-                    (11, 12): {'topk': 7, 'r_rate': 0.5, 'k1': 13, 'k2': 5, 'lambda_value': 0.7,
-                               'alpha': 0.8, 'long_time_t': 500, 'short_time_t': 500, 'num_search_times': 2},
-                    (12, 13): {'topk': 7, 'r_rate': 0.5, 'k1': 10, 'k2': 5, 'lambda_value': 0.4,
-                               'alpha': 0.8, 'long_time_t': 500, 'short_time_t': 500, 'num_search_times': 2},
-                    (13, 14): {'topk': 9, 'r_rate': 0.5, 'k1': 12, 'k2': 7, 'lambda_value': 0.6,
-                               'alpha': 1.1, 'long_time_t': 500, 'short_time_t': 500, 'num_search_times': 2},
-                    (13, 15): {'topk': 7, 'r_rate': 0.5, 'k1': 13, 'k2': 5, 'lambda_value': 0.7,
-                               'alpha': 1.1, 'long_time_t': 500, 'short_time_t': 500, 'num_search_times': 2},
-                    (15, 13): {'topk': 7, 'r_rate': 0.5, 'k1': 13, 'k2': 5, 'lambda_value': 0.7,
-                               'alpha': 0.8, 'long_time_t': 50, 'short_time_t': 500, 'num_search_times': 2},
-                    (14, 13): {'topk': 9, 'r_rate': 0.5, 'k1': 12, 'k2': 7, 'lambda_value': 0.6,
-                               'alpha': 1.1, 'long_time_t': 50, 'short_time_t': 500, 'num_search_times': 2},
-                    (13, 12): {'topk': 9, 'r_rate': 0.5, 'k1': 13, 'k2': 5, 'lambda_value': 0.7,
-                               'alpha': 1.1, 'long_time_t': 500, 'short_time_t': 500, 'num_search_times': 2},
-                    (12, 11): {'topk': 7, 'r_rate': 0.5, 'k1': 13, 'k2': 5, 'lambda_value': 0.7,
-                               'alpha': 1.1, 'long_time_t': 500, 'short_time_t': 500, 'num_search_times': 2},
-                    (11, 10): {'topk': 9, 'r_rate': 0.5, 'k1': 12, 'k2': 7, 'lambda_value': 0.6,
-                               'alpha': 1.1, 'long_time_t': 500, 'short_time_t': 500, 'num_search_times': 2}, }
+adjacent_path = '../input/cam_infor/adjacent_list.txt'
+adjacent_list = {}
+with open(adjacent_path, 'r') as f:
+    for line in f:
+        adjacent = line.strip().split(' ')
+        cam_out_id = int(adjacent[0])
+        cam_in_id = int(adjacent[1])
+        out_dir = int(adjacent[2])
+        in_dir = int(adjacent[3])
+        adjacent_list[(cam_out_id, cam_in_id)] = [out_dir, in_dir]
 
-adjacent_list = {
-    (10, 11): (1, 1), (11, 10): (2, 2),
-    (11, 12): (1, 1), (12, 11): (2, 2),
-    (12, 13): (1, 1), (13, 12): (2, 2), (13, 15): (4, 2),
-    (13, 14): (1, 1), (14, 13): (2, 2),
-    (15, 13): (1, 4)
-}
+# adjacent_list = {
+#     (10, 11): (1, 1), (11, 10): (2, 2),
+#     (11, 12): (1, 1), (12, 11): (2, 2),
+#     (12, 13): (1, 1), (13, 12): (2, 2), (13, 15): (4, 2),
+#     (13, 14): (1, 1), (14, 13): (2, 2),
+#     (15, 13): (1, 4)
+# }
 
 pre_defined_path = [
     [10, 11],
@@ -63,47 +75,6 @@ time_stamps = {
     14: int(5.042 * 10),
     15: int(8.492 * 8)
 }
-
-
-
-def argument_parser():
-    """ Argument parser
-    Receive args
-
-    Args:
-        None
-        
-    Returns:
-        parser: An argument object that contains all args
-
-    Raises:
-        None
-    """
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--src_root', type=str, default="data/preprocessed_data/",
-                        help='the root path of tracked files of single camera with submission format')
-    parser.add_argument('--dst_root', type=str, default="submit/",
-                        help='the root path of the generated file to submit')
-    parser.add_argument('--mode', type=str, default='linear')
-    parser.add_argument('--st_dim', type=int, default=0)
-    parser.add_argument('--en_dim', type=int, default=2048)
-    parser.add_argument('--topk', type=int, default=5)
-    parser.add_argument('--r_rate', type=float, default=0.5)
-
-    parser.add_argument('--k1', type=int, default=12)
-    parser.add_argument('--k2', type=int, default=7)
-    parser.add_argument('--lambda_value', type=float, default=0.6)
-
-    parser.add_argument('--alpha', type=float, default=1.1)
-    parser.add_argument('--long_time_t', type=float, default=50)
-    parser.add_argument('--short_time_t', type=float, default=50)
-
-    parser.add_argument('--num_search_times', type=int, default=1)
-
-    parser.add_argument('--occ_rate', type=float, default=1.0)
-    parser.add_argument('--occ_alpha', type=float, default=0.)
-
-    return parser
 
 
 class MultiCameraMatching(object):
@@ -620,10 +591,10 @@ def calc_occlusion_score(bboxes, track_ids):
 
 
 mask_matrix = {}
-_path = '../mask_zone'
-for d in os.listdir(_path):
-    mask = cv2.imread(_path + '/' + d, cv2.IMREAD_GRAYSCALE)
-    s = d.split('.')[0][-2:]
+_path = '../input/videos'
+for folder in os.listdir(_path):
+    mask = cv2.imread(_path + '/' + folder + '/' + 'mask_zone.jpg', cv2.IMREAD_GRAYSCALE)
+    s = folder.split('.')[0][-2:]
     s = int(s)
     mask = np.where(mask > 5, 0, mask)
     mask_matrix[s] = mask
@@ -637,130 +608,117 @@ for d in os.listdir(_path):
 # fig.show()
 
 
-
-with open('../temp_resnet101.pkl', 'rb') as f:
+with open('../output_pkl/results_scmt.pkl', 'rb') as f:
     cam_dict_results = pickle.load(f)
 
 
-cam_dict_tracklet = {}
-for cam_id, tracks in cam_dict_results.items():
-    cam_dict_tracklet.setdefault(cam_id, {})
-    for track in tracks:
-        t, l, w, h = track[2:6]
-        yc = int(t + w // 2)
-        xc = int(l + h // 2)
-        if track[1] not in cam_dict_tracklet[cam_id].keys():
-            cam_dict_tracklet[cam_id].setdefault(int(track[1]), Tracklet(cam_id, xc, yc, track[0], (t, l, w, h)))
-        else:
-            cam_dict_tracklet[cam_id][int(track[1])].add_element(xc, yc, track[0], (t, l, w, h))
+def run():
+    cam_dict_tracklet = {}
+    for cam_id, tracks in cam_dict_results.items():
+        cam_dict_tracklet.setdefault(cam_id, {})
+        for track in tracks:
+            t, l, w, h = track[2:6]
+            yc = int(t + w // 2)
+            xc = int(l + h // 2)
+            if track[1] not in cam_dict_tracklet[cam_id].keys():
+                cam_dict_tracklet[cam_id].setdefault(int(track[1]), Tracklet(cam_id, xc, yc, track[0], (t, l, w, h)))
+            else:
+                cam_dict_tracklet[cam_id][int(track[1])].add_element(xc, yc, track[0], (t, l, w, h))
 
 
-trun_dict = {}
-feat_dict = {}
-for cam_id, tracks in cam_dict_results.items():
-    feat_dict[cam_id] = {}
-    trun_dict[cam_id] = {}
+    trun_dict = {}
+    feat_dict = {}
+    for cam_id, tracks in cam_dict_results.items():
+        feat_dict[cam_id] = {}
+        trun_dict[cam_id] = {}
 
-    bboxes = []
-    track_ids = []
-    last_frame = tracks[0][0]
-    res = {}
+        bboxes = []
+        track_ids = []
+        last_frame = tracks[0][0]
+        res = {}
 
-    for track in tracks:
-        if track[1] not in feat_dict[cam_id].keys():
-            feat_dict[cam_id][int(track[1])] = []
-        if track[1] not in trun_dict[cam_id].keys():
-            trun_dict[cam_id][int(track[1])] = []
+        for track in tracks:
+            if track[1] not in feat_dict[cam_id].keys():
+                feat_dict[cam_id][int(track[1])] = []
+            if track[1] not in trun_dict[cam_id].keys():
+                trun_dict[cam_id][int(track[1])] = []
 
-        if track[0] != last_frame:
-            #print(np.array(bboxes).shape, last_frame, key, track_ids, last_frame)
-            res = calc_occlusion_score(np.array(bboxes), track_ids)
-            for tid in res.keys():
-                trun_dict[cam_id][tid].append(res[tid])
-            bboxes = []
-            track_ids = []
-            last_frame = track[0]
+            if track[0] != last_frame:
+                #print(np.array(bboxes).shape, last_frame, key, track_ids, last_frame)
+                res = calc_occlusion_score(np.array(bboxes), track_ids)
+                for tid in res.keys():
+                    trun_dict[cam_id][tid].append(res[tid])
+                bboxes = []
+                track_ids = []
+                last_frame = track[0]
 
-        bboxes.append(track[2:6])
-        track_ids.append(track[1])
+            bboxes.append(track[2:6])
+            track_ids.append(track[1])
 
-        feat_dict[cam_id][int(track[1])].append(track[7])
+            feat_dict[cam_id][int(track[1])].append(track[7])
 
-    for tid in res.keys():
-        trun_dict[cam_id][tid].append(res[tid])
-
-
-
-track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone, track_st_frame, track_en_frame = \
-[], [], [], [], [], []
+        for tid in res.keys():
+            trun_dict[cam_id][tid].append(res[tid])
 
 
-for cid in cam_dict_tracklet.keys():
-    for tid in cam_dict_tracklet[cid].keys():
-        track_cam_id_arr.append(int(cid))
-        track_id_arr.append(int(tid))
-        track_st_zone.append(int(cam_dict_tracklet[cid][tid].st_id))
-        track_en_zone.append(int(cam_dict_tracklet[cid][tid].en_id))
-        track_st_frame.append(int(cam_dict_tracklet[cid][tid].frames[0]))
-        track_en_frame.append(int(cam_dict_tracklet[cid][tid].frames[-1]))
+    track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone, track_st_frame, track_en_frame = \
+    [], [], [], [], [], []
+
+    for cid in cam_dict_tracklet.keys():
+        for tid in cam_dict_tracklet[cid].keys():
+            track_cam_id_arr.append(int(cid))
+            track_id_arr.append(int(tid))
+            track_st_zone.append(int(cam_dict_tracklet[cid][tid].st_id))
+            track_en_zone.append(int(cam_dict_tracklet[cid][tid].en_id))
+            track_st_frame.append(int(cam_dict_tracklet[cid][tid].frames[0]))
+            track_en_frame.append(int(cam_dict_tracklet[cid][tid].frames[-1]))
 
 
-#cutting tracks that are too short
-length = len(track_cam_id_arr)
-i = 0
-while i < length:
-    if track_en_frame[i] - track_st_frame[i] < 4: #or track_en_frame[i] == cam_frames[track_cam_id_arr[i]]:
-        track_cam_id_arr.pop(i)
-        track_id_arr.pop(i)
-        track_st_zone.pop(i)
-        track_en_zone.pop(i)
-        track_st_frame.pop(i)
-        track_en_frame.pop(i)
+    #cutting tracks that are too short
+    length = len(track_cam_id_arr)
+    i = 0
+    while i < length:
+        if track_en_frame[i] - track_st_frame[i] < 4: #or track_en_frame[i] == cam_frames[track_cam_id_arr[i]]:
+            track_cam_id_arr.pop(i)
+            track_id_arr.pop(i)
+            track_st_zone.pop(i)
+            track_en_zone.pop(i)
+            track_st_frame.pop(i)
+            track_en_frame.pop(i)
 
-        i -= 1
-        length -= 1
-    i += 1
+            i -= 1
+            length -= 1
+        i += 1
 
-track_cam_id_arr = np.array(track_cam_id_arr)
-track_id_arr = np.array(track_id_arr)
-track_st_zone = np.array(track_st_zone)
-track_en_zone = np.array(track_en_zone)
-track_st_frame = np.array(track_st_frame)
-track_en_frame = np.array(track_en_frame)
+    track_cam_id_arr = np.array(track_cam_id_arr)
+    track_id_arr = np.array(track_id_arr)
+    track_st_zone = np.array(track_st_zone)
+    track_en_zone = np.array(track_en_zone)
+    track_st_frame = np.array(track_st_frame)
+    track_en_frame = np.array(track_en_frame)
 
-with open('all_cameras.txt', 'w') as f:
-    for i in range(len(track_cam_id_arr)):
-        cid = track_cam_id_arr[i]
-        tid = track_id_arr[i]
-        for j in range(len(cam_dict_tracklet[cid][tid].frames)):
-            frame = cam_dict_tracklet[cid][tid].frames[j]
-            xywh = cam_dict_tracklet[cid][tid].bboxes[j]
-            f.write(f"{cid} {tid} {frame} {int(xywh[0])} {int(xywh[1])} {int(xywh[2])} {int(xywh[3])} -1 -1\n")
-
-
-matcher = MultiCameraMatching(track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone,
-                                  track_st_frame, track_en_frame, feat_dict,
-                                  topk=20, r_rate=0.5,
-                                  k1=15, k2=7, lambda_value=0.6,
-                                  alpha=1.1, long_time_t=500, short_time_t=500,
-                                  num_search_times=2,
-                                  trun_dict=trun_dict, occ_rate=1.0, occ_alpha=0.)
+    with open('all_cameras_scmt.txt', 'w') as f:
+        for i in range(len(track_cam_id_arr)):
+            cid = track_cam_id_arr[i]
+            tid = track_id_arr[i]
+            for j in range(len(cam_dict_tracklet[cid][tid].frames)):
+                frame = cam_dict_tracklet[cid][tid].frames[j]
+                xywh = cam_dict_tracklet[cid][tid].bboxes[j]
+                f.write(f"{cid} {tid} {frame} {int(xywh[0])} {int(xywh[1])} {int(xywh[2])} {int(xywh[3])} -1 -1\n")
 
 
-matcher.forward_matching(mode='linear', st_dim=0, en_dim=2048, is_test=False, cam_out_id=13, cam_in_id=14)
+    matcher = MultiCameraMatching(track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone,
+                                      track_st_frame, track_en_frame, feat_dict,
+                                      topk=20, r_rate=0.5,
+                                      k1=15, k2=7, lambda_value=0.6,
+                                      alpha=1.1, long_time_t=500, short_time_t=500,
+                                      num_search_times=2,
+                                      trun_dict=trun_dict, occ_rate=1.0, occ_alpha=0.)
 
 
-matcher.write_output('all_cameras.txt', './output2.txt')
-
-#cam_arr, track_arr, in_dir_arr, out_dir_arr, in_time_arr, out_time_arr, feat_arr,
+    matcher.forward_matching(mode='linear', st_dim=0, en_dim=2048, is_test=False, cam_out_id=13, cam_in_id=14)
 
 
-from scipy.spatial import distance
-def cosine_sim(a, b):
-    return 1 - distance.cdist(a, b, 'cosine')
+    matcher.write_output('./all_cameras_scmt.txt', './output_ica.txt')
 
-test = cosine_sim(feat_dict[10][14], feat_dict[11][7])
 
-np.linalg.norm(feat_dict[10][14][4], 2)
-
-np.linalg.norm([1, 2, 3], 2)
