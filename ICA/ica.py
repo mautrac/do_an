@@ -8,9 +8,11 @@ import pickle
 import sys
 
 sys.path.append('../')
+input_path = './input'
+output_pkl_path = './output_pkl'
 
-infor_path = '../input/cam_infor/'
-mask_loose_path = '../input/cam_infor/travel_time_loose_constraint.txt'
+infor_path = input_path + '/cam_infor/'
+mask_loose_path = input_path + '/cam_infor/travel_time_loose_constraint.txt'
 two_track_valid_pass_time_for_mask_dict = {}
 with open(mask_loose_path, 'r') as f:
     for line in f:
@@ -27,7 +29,7 @@ with open(mask_loose_path, 'r') as f:
 #                                            (12, 11): [-50, 150], (11, 10): [-300, 150]}
 #
 
-mask_hard_path = '../input/cam_infor/travel_time_hard_constraint.txt'
+mask_hard_path = input_path + '/cam_infor/travel_time_hard_constraint.txt'
 two_track_valid_pass_time_dict = {}
 with open(mask_hard_path, 'r') as f:
     for line in f:
@@ -43,7 +45,7 @@ with open(mask_hard_path, 'r') as f:
 #                                            (15, 13): [-200, 50], (14, 13): [0, 350], (13, 12): [-250, 250],
 #                                            (12, 11): [-80, 200], (11, 10): [-350, 200]}
 
-adjacent_path = '../input/cam_infor/adjacent_list.txt'
+adjacent_path = input_path + '/cam_infor/adjacent_list.txt'
 adjacent_list = {}
 with open(adjacent_path, 'r') as f:
     for line in f:
@@ -61,11 +63,19 @@ with open(adjacent_path, 'r') as f:
 #     (13, 14): (1, 1), (14, 13): (2, 2),
 #     (15, 13): (1, 4)
 # }
+keys = list(adjacent_list.keys())
 
-pre_defined_path = [
-    [10, 11],
-    [11, 12], [12, 13], [13, 14], [13, 15]
-]
+from operator import itemgetter
+
+path1 = []
+path2 = []
+for k in keys:
+    if k[0] < k[1]:
+        path1.append(k)
+    else:
+        path2.append(k)
+path1.sort(key=itemgetter(0))
+path2.sort(key=itemgetter(0), reverse=True)
 
 time_stamps = {
     10: int(8.715 * 10),
@@ -106,7 +116,7 @@ class MultiCameraMatching(object):
         self.out_time_arr = out_time_arr
 
         self.feat_dict = feat_dict
-        #self.feat_arr = feat_arr
+        # self.feat_arr = feat_arr
         self.trun_dict = trun_dict
 
         ### params
@@ -146,7 +156,6 @@ class MultiCameraMatching(object):
         candidates_in &= dir_map_in
         return candidates_out, candidates_in
 
-
     def do_matching(self, cam_out_arr, cam_in_arr, track_out_arr, track_in_arr,
                     out_time_out_arr, in_time_in_arr, cam_out_id, cam_in_id, st_dim=0, en_dim=2048):
         n_out = cam_out_arr.shape[0]
@@ -156,7 +165,7 @@ class MultiCameraMatching(object):
         feat_out_list = []
         trun_out_list = []
         for i in range(n_out):
-            #f_out = np.array(self.feat_dict[cam_out_arr[i]][track_out_arr[i]])[:, st_dim:en_dim]
+            # f_out = np.array(self.feat_dict[cam_out_arr[i]][track_out_arr[i]])[:, st_dim:en_dim]
             f_out = np.array(self.feat_dict[cam_out_arr[i]][track_out_arr[i]])[:, st_dim:en_dim]
             trun_out = np.array(self.trun_dict[cam_out_arr[i]][track_out_arr[i]])
             #             cam_out_feat_list.append(np.ones(f_out.shape[0]) * cam_out_arr[i])
@@ -220,7 +229,7 @@ class MultiCameraMatching(object):
         k2 = self.k2
         lambda_value = self.lambda_value
         dist_mat = re_ranking(q_g_sim, q_q_sim, g_g_sim, k1=k1, k2=k2, lambda_value=lambda_value)  # nxm
-        #breakpoint()
+        # breakpoint()
 
         # mask with intervals
         tth_min, tth_max = two_track_valid_pass_time_for_mask_dict[(cam_out_id, cam_in_id)]
@@ -240,7 +249,8 @@ class MultiCameraMatching(object):
         too_long_pairs_indices = (travel_time_mat > tth_max)
         if len(too_short_pairs_indices) > 0:
             travel_time_mask[too_short_pairs_indices] = np.exp(alpha * (tth_min - \
-                                                                travel_time_mat[too_short_pairs_indices]) / short_time_t)
+                                                                        travel_time_mat[
+                                                                            too_short_pairs_indices]) / short_time_t)
         if len(too_long_pairs_indices) > 0:
             travel_time_mask[too_long_pairs_indices] = np.exp(alpha * (travel_time_mat[too_long_pairs_indices] \
                                                                        - tth_max) / long_time_t)
@@ -249,7 +259,6 @@ class MultiCameraMatching(object):
         # travel_time_mask[too_long_pairs_indices] = np.exp(alpha * -( tth_max - travel_time_mat[too_long_pairs_indices] ) )
 
         dist_mat *= travel_time_mask
-
 
         # mask with occlusion
         occ_rate = self.occ_rate
@@ -362,18 +371,19 @@ class MultiCameraMatching(object):
         # in_dir_out_arr = self.in_dir_arr[map_out_arr]
         # out_dir_out_arr = self.out_dir_arr[map_out_arr]
         in_time_out_arr = self.in_time_arr[map_out_arr]
-        out_time_out_arr = self.out_time_arr[map_out_arr] #- time_stamps[cam_out_id]
+        out_time_out_arr = self.out_time_arr[map_out_arr]  # - time_stamps[cam_out_id]
 
         cam_in_arr = self.cam_arr[map_in_arr]
         track_in_arr = self.track_arr[map_in_arr]
         # in_dir_in_arr = self.in_dir_arr[map_in_arr]
         # out_dir_in_arr = self.out_dir_arr[map_in_arr]
-        in_time_in_arr = self.in_time_arr[map_in_arr] #- time_stamps[cam_in_id]
+        in_time_in_arr = self.in_time_arr[map_in_arr]  # - time_stamps[cam_in_id]
         out_time_in_arr = self.out_time_arr[map_in_arr]
         print('cam: {}; tracks: {} \t track_ids: {}'.format(cam_out_id, len(track_out_arr), np.sort(track_out_arr)))
         print('cam: {}; tracks: {} \t track_ids: {}'.format(cam_in_id, len(track_in_arr), np.sort(track_in_arr)))
 
-        print('cam: {}; tracks: {} \t track_time: {}'.format(cam_out_id, len(out_time_out_arr), np.sort(out_time_out_arr)))
+        print('cam: {}; tracks: {} \t track_time: {}'.format(cam_out_id, len(out_time_out_arr),
+                                                             np.sort(out_time_out_arr)))
         print('cam: {}; tracks: {} \t track_time: {}'.format(cam_in_id, len(in_time_in_arr), np.sort(in_time_in_arr)))
 
         #### Search results circularly
@@ -403,7 +413,7 @@ class MultiCameraMatching(object):
 
             sub_out_time_out_arr = out_time_out_arr[map_sub_out_arr]
             sub_in_time_in_arr = in_time_in_arr[map_sub_in_arr]
-            #breakpoint()
+            # breakpoint()
             r = min(sub_track_out_arr.shape[0] / float(track_out_arr.shape[0]),
                     sub_track_in_arr.shape[0] / float(track_in_arr.shape[0]))
             self.topk = int(topk * r)
@@ -482,8 +492,7 @@ class MultiCameraMatching(object):
             return
 
         # positve matching
-        for cam_out_id, cam_in_id in pre_defined_path:
-
+        for cam_out_id, cam_in_id in path1:
             print('out: {}; in: {}'.format(cam_out_id, cam_in_id))
 
             # key = (cam_out_id, cam_in_id)
@@ -502,7 +511,7 @@ class MultiCameraMatching(object):
                           st_dim=st_dim, en_dim=en_dim, is_params=False)
 
         # negative matching
-        for cam_in_id, cam_out_id in pre_defined_path[::-1]:
+        for cam_out_id, cam_in_id in path2:
             print('out: {}; in: {}'.format(cam_out_id, cam_in_id))
 
             # key = (cam_out_id, cam_in_id)
@@ -536,6 +545,14 @@ class MultiCameraMatching(object):
                     dst_obj.write(
                         '{}\n'.format(' '.join(map(str, s))))  # [camera_id, track_id, frame_id, x, y, w, h, -1, -1]
         dst_obj.close()
+
+    def fill_global_id_arr(self):
+        max_id = self.global_id_arr.max() + 1
+        for i in range(len(self.global_id_arr)):
+            if self.global_id_arr[i] == -1:
+                self.global_id_arr[i] = max_id + 1
+                max_id += 1
+
 
 
 class Tracklet(object):
@@ -584,14 +601,14 @@ def calc_occlusion_score(bboxes, track_ids):
         ious = inter_areas / areas[sorted_ids[j + 1:]]
         max_iou = np.max(ious) if ious.size != 0 else 0
 
-        #key = 'c0{}_{}_{}'.format(cam_id, fr_id, track_ids[i])
+        # key = 'c0{}_{}_{}'.format(cam_id, fr_id, track_ids[i])
         res_dict[track_ids[i]] = max_iou
 
     return res_dict
 
 
 mask_matrix = {}
-_path = '../input/videos'
+_path = input_path + '/videos'
 for folder in os.listdir(_path):
     mask = cv2.imread(_path + '/' + folder + '/' + 'mask_zone.jpg', cv2.IMREAD_GRAYSCALE)
     s = folder.split('.')[0][-2:]
@@ -599,16 +616,7 @@ for folder in os.listdir(_path):
     mask = np.where(mask > 5, 0, mask)
     mask_matrix[s] = mask
 
-# import matplotlib.pyplot as plt
-# fig, axes = plt.subplots(3, 2, figsize=(20,20))
-# for i, (key, value) in enumerate(mask_matrix.items()):
-#     axes[i // 2, i % 2].set_title(f"Cam {key}")
-#     axes[i // 2, i % 2].imshow(value)
-#
-# fig.show()
-
-
-with open('../output_pkl/results_scmt.pkl', 'rb') as f:
+with open(output_pkl_path + '/results_scmt.pkl', 'rb') as f:
     cam_dict_results = pickle.load(f)
 
 
@@ -624,7 +632,6 @@ def run():
                 cam_dict_tracklet[cam_id].setdefault(int(track[1]), Tracklet(cam_id, xc, yc, track[0], (t, l, w, h)))
             else:
                 cam_dict_tracklet[cam_id][int(track[1])].add_element(xc, yc, track[0], (t, l, w, h))
-
 
     trun_dict = {}
     feat_dict = {}
@@ -644,7 +651,7 @@ def run():
                 trun_dict[cam_id][int(track[1])] = []
 
             if track[0] != last_frame:
-                #print(np.array(bboxes).shape, last_frame, key, track_ids, last_frame)
+                # print(np.array(bboxes).shape, last_frame, key, track_ids, last_frame)
                 res = calc_occlusion_score(np.array(bboxes), track_ids)
                 for tid in res.keys():
                     trun_dict[cam_id][tid].append(res[tid])
@@ -660,9 +667,8 @@ def run():
         for tid in res.keys():
             trun_dict[cam_id][tid].append(res[tid])
 
-
     track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone, track_st_frame, track_en_frame = \
-    [], [], [], [], [], []
+        [], [], [], [], [], []
 
     for cid in cam_dict_tracklet.keys():
         for tid in cam_dict_tracklet[cid].keys():
@@ -673,12 +679,11 @@ def run():
             track_st_frame.append(int(cam_dict_tracklet[cid][tid].frames[0]))
             track_en_frame.append(int(cam_dict_tracklet[cid][tid].frames[-1]))
 
-
-    #cutting tracks that are too short
+    # cutting tracks that are too short
     length = len(track_cam_id_arr)
     i = 0
     while i < length:
-        if track_en_frame[i] - track_st_frame[i] < 4: #or track_en_frame[i] == cam_frames[track_cam_id_arr[i]]:
+        if track_en_frame[i] - track_st_frame[i] < 4:  # or track_en_frame[i] == cam_frames[track_cam_id_arr[i]]:
             track_cam_id_arr.pop(i)
             track_id_arr.pop(i)
             track_st_zone.pop(i)
@@ -706,19 +711,14 @@ def run():
                 xywh = cam_dict_tracklet[cid][tid].bboxes[j]
                 f.write(f"{cid} {tid} {frame} {int(xywh[0])} {int(xywh[1])} {int(xywh[2])} {int(xywh[3])} -1 -1\n")
 
-
     matcher = MultiCameraMatching(track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone,
-                                      track_st_frame, track_en_frame, feat_dict,
-                                      topk=20, r_rate=0.5,
-                                      k1=15, k2=7, lambda_value=0.6,
-                                      alpha=1.1, long_time_t=500, short_time_t=500,
-                                      num_search_times=2,
-                                      trun_dict=trun_dict, occ_rate=1.0, occ_alpha=0.)
-
+                                  track_st_frame, track_en_frame, feat_dict,
+                                  topk=12, r_rate=0.5,
+                                  k1=12, k2=7, lambda_value=0.6,
+                                  alpha=1.1, long_time_t=500, short_time_t=500,
+                                  num_search_times=2,
+                                  trun_dict=trun_dict, occ_rate=1.0, occ_alpha=0.)
 
     matcher.forward_matching(mode='linear', st_dim=0, en_dim=2048, is_test=False, cam_out_id=13, cam_in_id=14)
 
-
     matcher.write_output('./all_cameras_scmt.txt', './output_ica.txt')
-
-

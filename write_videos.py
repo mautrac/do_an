@@ -43,7 +43,7 @@ def write_video(video_name, frame_rate, origin_video, labels):
 #
 # names = ['CameraId','Id', 'FrameId', 'X', 'Y', 'Width', 'Height', 'Xworld', 'Yworld']
 # annotation_file = np.loadtxt('ICA/output2.txt', delimiter=' ', dtype=int)
-# #annotation_file = np.loadtxt('ground_truth_train.txt/ground_truth_train.txt', delimiter=' ', dtype=int)
+# #annotation_file = np.loadtxt('ground_truth_train/ground_truth_train', delimiter=' ', dtype=int)
 #
 # annotation_file = pd.DataFrame(annotation_file, columns=names)
 # camera_ids = [10, 11, 12, 13, 14, 15]

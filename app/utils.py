@@ -44,11 +44,11 @@ def check_files():
         if not os.path.exists(f'input/videos/{d}/mask_zone.jpg'):
             return 'Missing files', f'Camera {cam_id} mask is missing files'
 
-    if not os.path.exists('../input/cam_infor/adjacent_list.txt'):
+    if not os.path.exists('input/cam_infor/adjacent_list.txt'):
         return 'Missing files', 'Adjacent list is missing files'
-    if not os.path.exists('../input/cam_infor/travel_time_loose_constraint.txt.txt'):
+    if not os.path.exists('input/cam_infor/travel_time_loose_constraint.txt'):
         return 'Missing files', 'Travel time loose is missing files'
-    if not os.path.exists('../input/cam_infor/travel_time_hard_constraint.txt.csv'):
+    if not os.path.exists('input/cam_infor/travel_time_hard_constraint.txt'):
         return 'Missing files', 'Travel time hard is missing files'
 
     return 'Success', 'All files are present'

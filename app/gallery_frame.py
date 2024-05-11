@@ -1,6 +1,6 @@
 import tkinter as tk
 from app import utils
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from PIL import Image
 from PIL import ImageTk
 #import sys
@@ -92,6 +92,7 @@ class CompositeFrame(tk.Frame):
         self.process_button = tk.Button(self.buttons_frame, text="Process", command=self.process_images, borderwidth=5, underline=0, width=button_width)
         self.process_button.place(relx=0.75, rely=0.5, anchor=tk.CENTER)
 
+        self.loaded = False
 
     def update(self):
         self.gallery.update(self.images, self.names)
@@ -108,9 +109,18 @@ class CompositeFrame(tk.Frame):
         self.images = images
         self.names = names
         self.update()
-        utils.check_files()
+        mess, post = utils.check_files()
+        if mess != 'Success':
+            messagebox.showerror(mess, post)
+        else:
+            messagebox.showinfo(mess, post)
+            self.loaded = True
+
 
     def process_images(self):
+        if not self.loaded:
+            messagebox.showerror('Error', 'Load data first')
+            return
         process_scmt()
         ica.run()
 
