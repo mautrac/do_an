@@ -1,6 +1,6 @@
 import tkinter
 from app.query_frame import QueryFrame
-from app.gallery_frame import CompositeFrame
+from app.scmt_window import CompositeFrame
 from tkinter import ttk
 
 root = tkinter.Tk()

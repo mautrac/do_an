@@ -2,6 +2,7 @@ from tqdm import tqdm
 import os
 from run_scmt import run_video
 from reid.make_model import make_model
+from reid.resnet_50_vehiclenet import Resnet50
 import pickle
 from torch.cuda import is_available
 import tkinter as tk
@@ -57,6 +58,10 @@ def process_scmt():
     reid_model = make_model(1000, pretrained_path='./reid/resnet101_ibn_a_2.pth')
     reid_model.to(device)
     reid_model.eval()
+
+    # reid_model = Resnet50('./reid/net_last.pth', device)
+    # reid_model.to(device)
+    # reid_model.eval()
 
     for d in os.listdir(path):
         #popup.update()

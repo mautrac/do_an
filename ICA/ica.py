@@ -721,4 +721,10 @@ def run():
 
     matcher.forward_matching(mode='linear', st_dim=0, en_dim=2048, is_test=False, cam_out_id=13, cam_in_id=14)
 
+    matcher.fill_global_id_arr()
     matcher.write_output('./all_cameras_scmt.txt', './output_ica.txt')
+
+    matching_results = [track_cam_id_arr, track_id_arr, matcher.global_id_arr, track_st_zone, track_en_zone,
+                        track_st_frame, track_en_frame, feat_dict]
+    with open('output_pkl/matching_result.pkl', 'wb') as f:
+        pickle.dump(matching_results, f)

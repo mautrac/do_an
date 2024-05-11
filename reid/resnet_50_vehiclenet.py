@@ -114,3 +114,25 @@ class ft_net(nn.Module):
         else:
             x = self.classifier(x)
         return x
+
+
+class Resnet50(torch.nn.Module):
+    def __init__(self, pretrained_path, device='cpu'):
+        super(Resnet50, self).__init__()
+        model = ft_net(31605)
+        state_dict = torch.load(pretrained_path)
+        # create new OrderedDict that does not contain `module.`
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            name = k[7:] # remove `module.`
+            new_state_dict[name] = v
+        # load params
+        model.load_state_dict(new_state_dict)
+        model.to(device)
+        model.eval()
+        model.classifier.return_f = True
+        self.model = model
+    def forward(self, x):
+        c, f = self.model(x)
+        return f
