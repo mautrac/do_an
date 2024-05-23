@@ -110,8 +110,18 @@ class QueryFrame(tk.Frame):
             return
         closet_distance, id, cams, start_times = results
 
+        # show message bos with 2 options
         message = (f"ID: {id}\n"
                    f"Cams: {cams}\n"
-                   f"Start times: {start_times}\n")
-        messagebox.showinfo('Results', message)
+                   f"Start times: {start_times}\n"
+                   f"Do you want to view in camera?")
+        ret = messagebox.askyesno("Results", message, icon='info', default='yes', parent=self.master)
+
+        if ret:
+            print("Yes")
+            searching_vehicle.visualize_images_with_plt()
+
+
+
+
 

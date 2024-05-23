@@ -70,6 +70,7 @@ class ResNext50(nn.Module):
         model.classifier = ClassBlock(2048, num_class, drop_rate)
         self.model = model
 
+
     def forward(self, x):
         x = self.model.conv1(x)
         x = self.model.bn1(x)

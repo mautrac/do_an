@@ -620,7 +620,7 @@ with open(output_pkl_path + '/results_scmt.pkl', 'rb') as f:
     cam_dict_results = pickle.load(f)
 
 
-def run():
+def run(topk=15):
     cam_dict_tracklet = {}
     for cam_id, tracks in cam_dict_results.items():
         cam_dict_tracklet.setdefault(cam_id, {})
@@ -667,8 +667,8 @@ def run():
         for tid in res.keys():
             trun_dict[cam_id][tid].append(res[tid])
 
-    track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone, track_st_frame, track_en_frame = \
-        [], [], [], [], [], []
+    track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone, track_st_frame, track_en_frame, track_bboxes = \
+        [], [], [], [], [], [], []
 
     for cid in cam_dict_tracklet.keys():
         for tid in cam_dict_tracklet[cid].keys():
@@ -678,6 +678,7 @@ def run():
             track_en_zone.append(int(cam_dict_tracklet[cid][tid].en_id))
             track_st_frame.append(int(cam_dict_tracklet[cid][tid].frames[0]))
             track_en_frame.append(int(cam_dict_tracklet[cid][tid].frames[-1]))
+            track_bboxes.append(cam_dict_tracklet[cid][tid].bboxes)
 
     # cutting tracks that are too short
     length = len(track_cam_id_arr)
@@ -690,6 +691,7 @@ def run():
             track_en_zone.pop(i)
             track_st_frame.pop(i)
             track_en_frame.pop(i)
+            track_bboxes.pop(i)
 
             i -= 1
             length -= 1
@@ -713,7 +715,7 @@ def run():
 
     matcher = MultiCameraMatching(track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone,
                                   track_st_frame, track_en_frame, feat_dict,
-                                  topk=12, r_rate=0.5,
+                                  topk=topk, r_rate=0.5,
                                   k1=12, k2=7, lambda_value=0.6,
                                   alpha=1.1, long_time_t=500, short_time_t=500,
                                   num_search_times=2,
@@ -725,6 +727,6 @@ def run():
     matcher.write_output('./all_cameras_scmt.txt', './output_ica.txt')
 
     matching_results = [track_cam_id_arr, track_id_arr, matcher.global_id_arr, track_st_zone, track_en_zone,
-                        track_st_frame, track_en_frame, feat_dict]
+                        track_st_frame, track_en_frame, feat_dict, track_bboxes]
     with open('output_pkl/matching_result.pkl', 'wb') as f:
         pickle.dump(matching_results, f)
