@@ -72,7 +72,7 @@ def search_vehicle(image: Image.Image, distance_threshold=0.5):
     f = get_numpy(f)
 
     # results = [track_cam_id_arr, track_id_arr, matcher.global_id_arr, track_st_zone, track_en_zone,
-    #                     track_st_frame, track_en_frame, feat_dict, track_bboxes]
+    #                     track_st_frame, track_en_frame, feat_dict, track_bboxes, track_scores]
 
     cam_arr, id_arr, globel_id_arr, feat_dict = results[0], results[1], results[2], results[7]
     bbox_arr = results[8]
@@ -148,6 +148,8 @@ def visualize_images_with_plt():
     global result_idx
     cam_arr, id_arr, globel_id_arr = results[0], results[1], results[2]
     bbox_arr = results[8]
+    track_scores = results[9]
+    track_frames = results[10]
     st_time_arr = results[5]
 
     track_id = globel_id_arr[result_idx[0]]
@@ -159,11 +161,16 @@ def visualize_images_with_plt():
         cam = cam_arr[i]
         track_cam.append(cam)
         length = len(bbox_arr[i])
-        offset = length // 3
+        max_score = 0
+        offset = 0
+        for j in range(0, length):
+            if track_scores[i][j] > max_score:
+                max_score = track_scores[i][j]
+                offset = j
 
-        track_start_time[cam] = st_time_arr[i] + offset
+        track_start_time[cam] = track_frames[i][offset]
         bboxes[cam] = bbox_arr[i][offset + 1]
-        print(f'cam: {cam} ', len(bbox_arr[i]))
+        print(f'cam: {cam}  {len(bbox_arr[i])} {offset}')
 
 
     imgs = get_vehicle_images(track_cam, track_id, track_start_time, bboxes)
@@ -185,7 +192,7 @@ def visualize_images_with_plt():
         for ax, (cid, img) in zip(axs.flat, imgs.items()):
             ax.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             t = f'{track_start_time[cid]//3600}:{track_start_time[cid]//60}:{track_start_time[cid]%60}'
-            ax.set_title(f'Cam: {cid}\nStart time: {t}')
+            ax.set_title(f'Cam: {cid}\nTime: {t}')
             ax.axis('off')
             ax.set_axis_off()
 

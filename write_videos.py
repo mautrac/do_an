@@ -59,4 +59,4 @@ for name, group in grouped:
 
     frame_rate = video.get(cv2.CAP_PROP_FPS)
     w, h = int(video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    write_video(f'output_c0{name}.avi', frame_rate, video, sorted_group.values[:, 1:])
+    write_video(f'output_videos/output_c0{name}.avi', frame_rate, video, sorted_group.values[:, 1:])

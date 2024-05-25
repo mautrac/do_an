@@ -556,10 +556,11 @@ class MultiCameraMatching(object):
 
 
 class Tracklet(object):
-    def __init__(self, cam_id, x, y, fr_id, xywh):
+    def __init__(self, cam_id, x, y, fr_id, xywh, score=None):
         self.cam_id = cam_id
         self.frames = [fr_id]
         self.bboxes = [xywh]
+        self.scores = [score]
         self.st_id = -1  # the "in port" id when the track appears in the image at the start
         self.en_id = -1  # the "out port" id when the track disappears in the image at the end
         self.select_st_id(x, y)
@@ -570,10 +571,11 @@ class Tracklet(object):
     def select_en_id(self, x, y):
         self.en_id = mask_matrix[self.cam_id][x][y]
 
-    def add_element(self, x, y, fr_id, xywh):
+    def add_element(self, x, y, fr_id, xywh, score=None):
         self.bboxes.append(xywh)
         self.frames.append(fr_id)
         self.select_en_id(x, y)
+        self.scores.append(score)
 
 
 def calc_occlusion_score(bboxes, track_ids):
@@ -629,9 +631,9 @@ def run(topk=15):
             yc = int(t + w // 2)
             xc = int(l + h // 2)
             if track[1] not in cam_dict_tracklet[cam_id].keys():
-                cam_dict_tracklet[cam_id].setdefault(int(track[1]), Tracklet(cam_id, xc, yc, track[0], (t, l, w, h)))
+                cam_dict_tracklet[cam_id].setdefault(int(track[1]), Tracklet(cam_id, xc, yc, track[0], (t, l, w, h), track[6]))
             else:
-                cam_dict_tracklet[cam_id][int(track[1])].add_element(xc, yc, track[0], (t, l, w, h))
+                cam_dict_tracklet[cam_id][int(track[1])].add_element(xc, yc, track[0], (t, l, w, h), track[6])
 
     trun_dict = {}
     feat_dict = {}
@@ -667,8 +669,8 @@ def run(topk=15):
         for tid in res.keys():
             trun_dict[cam_id][tid].append(res[tid])
 
-    track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone, track_st_frame, track_en_frame, track_bboxes = \
-        [], [], [], [], [], [], []
+    track_cam_id_arr, track_id_arr, track_st_zone, track_en_zone, track_st_frame, track_en_frame, track_bboxes, track_scores, track_frames = \
+        [], [], [], [], [], [], [], [], []
 
     for cid in cam_dict_tracklet.keys():
         for tid in cam_dict_tracklet[cid].keys():
@@ -679,6 +681,8 @@ def run(topk=15):
             track_st_frame.append(int(cam_dict_tracklet[cid][tid].frames[0]))
             track_en_frame.append(int(cam_dict_tracklet[cid][tid].frames[-1]))
             track_bboxes.append(cam_dict_tracklet[cid][tid].bboxes)
+            track_scores.append(cam_dict_tracklet[cid][tid].scores)
+            track_frames.append(cam_dict_tracklet[cid][tid].frames)
 
     # cutting tracks that are too short
     length = len(track_cam_id_arr)
@@ -692,6 +696,8 @@ def run(topk=15):
             track_st_frame.pop(i)
             track_en_frame.pop(i)
             track_bboxes.pop(i)
+            track_scores.pop(i)
+            track_frames.pop(i)
 
             i -= 1
             length -= 1
@@ -727,6 +733,6 @@ def run(topk=15):
     matcher.write_output('./all_cameras_scmt.txt', './output_ica.txt')
 
     matching_results = [track_cam_id_arr, track_id_arr, matcher.global_id_arr, track_st_zone, track_en_zone,
-                        track_st_frame, track_en_frame, feat_dict, track_bboxes]
+                        track_st_frame, track_en_frame, feat_dict, track_bboxes, track_scores, track_frames]
     with open('output_pkl/matching_result.pkl', 'wb') as f:
         pickle.dump(matching_results, f)
