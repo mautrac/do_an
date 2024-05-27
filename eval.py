@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import scipy as sp
 import motmetrics as mm
-#import pytrec_eval as trec
+# import pytrec_eval as trec
 from PIL import Image
 from collections import defaultdict
 from argparse import ArgumentParser
@@ -44,7 +44,7 @@ See `python3 eval.py --help` for more info.
 
 def getData(fh, fpath, names=None, sep='\s+|\t+|,'):
     """ Get the necessary track data from a file handle.
-    
+
     Params
     ------
     fh : opened handle
@@ -61,27 +61,27 @@ def getData(fh, fpath, names=None, sep='\s+|\t+|,'):
         Data frame containing the data loaded from the stream with optionally assigned column names.
         No index is set on the data.
     """
-    
+
     try:
         df = pd.read_csv(
-            fpath, 
-            sep=sep, 
-            index_col=None, 
-            skipinitialspace=True, 
+            fpath,
+            sep=sep,
+            index_col=None,
+            skipinitialspace=True,
             header=None,
             names=names,
             engine='python'
         )
-        
+
         return df
-    
+
     except Exception as e:
         raise ValueError("Could not read input from %s. Error: %s" % (fpath, repr(e)))
 
 
 def readData(fpath):
-    """ Read test or pred data for a given track. 
-    
+    """ Read test or pred data for a given track.
+
     Params
     ------
     fpath : str
@@ -95,8 +95,8 @@ def readData(fpath):
     ----------
         May raise a ValueError exception if file cannot be opened or read.
     """
-    names = ['CameraId','Id', 'FrameId', 'X', 'Y', 'Width', 'Height', 'Xworld', 'Yworld']
-        
+    names = ['CameraId', 'Id', 'FrameId', 'X', 'Y', 'Width', 'Height', 'Xworld', 'Yworld']
+
     if not os.path.isfile(fpath):
         raise ValueError("File %s does not exist." % fpath)
     # Gzip tar archive
@@ -129,7 +129,7 @@ def readData(fpath):
 
 def print_results(summary, mread=False):
     """Print a summary dataframe in a human- or machine-readable format.
-    
+
     Params
     ------
     summary : pandas.DataFrame
@@ -144,12 +144,12 @@ def print_results(summary, mread=False):
     if mread:
         print('{"results":%s}' % summary.iloc[-1].to_json())
         return
-    
+
     formatters = {'idf1': '{:2.2f}'.format,
                   'idp': '{:2.2f}'.format,
                   'idr': '{:2.2f}'.format}
-    
-    summary = summary[['idf1','idp','idr']]
+
+    summary = summary[['idf1', 'idp', 'idr']]
     summary['idp'] *= 100
     summary['idr'] *= 100
     summary['idf1'] *= 100
@@ -163,7 +163,7 @@ def eval(test, pred, **kwargs):
     Params
     ------
     test : pandas.DataFrame
-        Labeled data for the test set. Minimum columns that should be present in the 
+        Labeled data for the test set. Minimum columns that should be present in the
         data frame include ['CameraId','Id', 'FrameId', 'X', 'Y', 'Width', 'Height'].
     pred : pandas.DataFrame
         Predictions for the same frames as in the test data.
@@ -182,14 +182,14 @@ def eval(test, pred, **kwargs):
     """
     if test is None:
         return None
-    mread  = kwargs.pop('mread', False)
+    mread = kwargs.pop('mread', False)
     dstype = kwargs.pop('dstype', 'train')
     roidir = kwargs.pop('roidir', 'ROIs')
-    
+
     # Internal evaluation functions
     def removeOutliersROI(df, dstype='train', roidir='ROIs', cid=None):
         """ Remove outliers from the submitted test df that are outsize the region of interest for each camera.
-        
+
         Params
         ------
         df : pandas.dfFrame
@@ -211,7 +211,7 @@ def eval(test, pred, **kwargs):
 
         def loadroi(cid):
             """Read the ROI image for a given camera.
-        
+
             Params
             ------
             cid : int
@@ -225,20 +225,20 @@ def eval(test, pred, **kwargs):
             imf = os.path.join(roidir, dstype, 'c%03d' % cid, 'roi.jpg')
             if not os.path.exists(imf):
                 raise ValueError("Missing ROI image for camera %03d." % cid)
-            img = Image.open( imf, mode='r')
+            img = Image.open(imf, mode='r')
             img.load()
             if img.size[0] > img.size[1]:
                 img = img.transpose(Image.TRANSPOSE)
-                
-            im = np.asarray( img, dtype="uint8" )
+
+            im = np.asarray(img, dtype="uint8")
             if im.shape[0] > im.shape[1]:
                 im = im.T
 
             return im
-        
+
         def isROIOutlier(row, roi, height, width):
             """Check whether item stored in row is outside the region of interest.
-            
+
             Params
             ------
             row : pandas.Series
@@ -258,7 +258,7 @@ def eval(test, pred, **kwargs):
             ymin = row['Y']
             xmax = row['X'] + row['Width']
             ymax = row['Y'] + row['Height']
-        
+
             if xmin >= 0 and xmin < width:
                 if ymin >= 0 and ymin < height and roi[ymin, xmin] < 255:
                     return True
@@ -270,7 +270,6 @@ def eval(test, pred, **kwargs):
                 if ymax >= 0 and ymax < height and roi[ymax, xmax] < 255:
                     return True
             return False
-
 
         # Fetch the ROI data if necessary
         if not os.path.isdir(roidir):
@@ -294,7 +293,7 @@ def eval(test, pred, **kwargs):
         # Store which rows are not ROI outliers
         df['NotOutlier'] = True
 
-        if cid is None: # Process all cameras
+        if cid is None:  # Process all cameras
             # Make sure df is sorted appropriately
             df.sort_values(['CameraId', 'FrameId'], inplace=True)
             # Load first ROI image
@@ -310,10 +309,10 @@ def eval(test, pred, **kwargs):
                     height, width = roi.shape
                 if isROIOutlier(row, roi, height, width):
                     df.at[i, 'NotOutlier'] = False
-                    
+
             return df[df['NotOutlier']].drop(columns=['NotOutlier'])
-        
-        df = df[df['CameraId']==cid].copy()
+
+        df = df[df['CameraId'] == cid].copy()
         # Make sure df is sorted appropriately
         df.sort_values(['CameraId', 'FrameId'], inplace=True)
         # Load ROI image
@@ -323,12 +322,12 @@ def eval(test, pred, **kwargs):
         for i, row in df.iterrows():
             if isROIOutlier(row, roi, height, width):
                 df.at[i, 'NotOutlier'] = False
-                
+
         return df[df['NotOutlier']].drop(columns=['NotOutlier'])
 
     def removeOutliersSingleCam(df):
         """Remove outlier objects that appear in a single camera.
-        
+
         Params
         ------
         df : pandas.DataFrame
@@ -339,10 +338,10 @@ def eval(test, pred, **kwargs):
             Filtered data with only objects that appear in 2 or more cameras.
         """
         # get unique CameraId/Id combinations, then count by Id
-        cnt = df[['CameraId','Id']].drop_duplicates()[['Id']].groupby(['Id']).size()
+        cnt = df[['CameraId', 'Id']].drop_duplicates()[['Id']].groupby(['Id']).size()
         # keep only those Ids with a camera count > 1
         keep = cnt[cnt > 1]
-        
+
         # retrict the data to kept ids
         return df.loc[df['Id'].isin(keep.index)]
 
@@ -362,10 +361,10 @@ def eval(test, pred, **kwargs):
         df = df.drop_duplicates(subset=['CameraId', 'Id', 'FrameId'], keep='first')
 
         return df
-        
+
     def compare_dataframes_mtmc(gts, ts):
         """Compute ID-based evaluation metrics for multi-camera multi-object tracking.
-        
+
         Params
         ------
         gts : pandas.DataFrame
@@ -406,8 +405,8 @@ def eval(test, pred, **kwargs):
         # compute multi-camera tracking evaluation stats
 
         multiCamAcc = mm.utils.compare_to_groundtruth(pd.concat(gtds), pd.concat(tsds), 'iou')
-        metrics=list(mm.metrics.motchallenge_metrics)
-        metrics.extend(['num_frames','idfp','idfn','idtp'])
+        metrics = list(mm.metrics.motchallenge_metrics)
+        metrics.extend(['num_frames', 'idfp', 'idfn', 'idtp'])
         summary = mh.compute(multiCamAcc, metrics=metrics, name='MultiCam')
 
         return summary
@@ -418,7 +417,7 @@ def eval(test, pred, **kwargs):
     pred = removeOutliersROI(pred, dstype=dstype, roidir=roidir)
     pred = removeOutliersSingleCam(pred)
     pred = removeRepetition(pred)
-    
+
     # evaluate results
     return compare_dataframes_mtmc(test, pred)
 
@@ -430,7 +429,7 @@ def usage(msg=None):
     print("\nUsage: %s" % usageMsg())
     exit()
 
-#
+
 # if __name__ == '__main__':
 #     args = get_args();
 #     if not args.data or len(args.data) < 2:
@@ -448,25 +447,30 @@ def usage(msg=None):
 #             print("Error: %s" % repr(e))
 #         traceback.print_exc()
 
-names = ['CameraId','Id', 'FrameId', 'X', 'Y', 'Width', 'Height', 'Xworld', 'Yworld']
-with open('ground_truth_train/ground_truth_train.txt', "r") as fh:
-    gt = getData(fh, 'ground_truth_train/ground_truth_train.txt', names=names)
 
-cam_test_ids = [10, 11, 12, 13, 14, 15]
+def test(fpath):
+    names = ['CameraId', 'Id', 'FrameId', 'X', 'Y', 'Width', 'Height', 'Xworld', 'Yworld']
+    with open('ground_truth_train.txt/ground_truth_train.txt', "r") as fh:
+        test = getData(fh, 'ground_truth_train.txt/ground_truth_train.txt', names=names)
 
-idx = gt['CameraId'].isin( cam_test_ids)
-gt = gt[idx]
+    cam_test_ids = [10, 11, 12, 13, 14, 15]
 
-with open('ICA/all_cameras.txt', "r") as fh:
-    pred = getData(fh, 'output_ica.txt', names=names)
+    idx = test['CameraId'].isin(cam_test_ids)
+    test = test[idx]
 
-idx = pred['CameraId'].isin( cam_test_ids)
-pred = pred[idx]
+    with open('all_cameras.txt', "r") as fh:
+        pred = getData(fh, fpath, names=names)
 
-try:
-    summary = eval(gt, pred, mread=True, dstype='train', roidir='./')
-    print_results(summary, mread=True)
-except Exception as e:
+    idx = pred['CameraId'].isin(cam_test_ids)
+    pred = pred[idx]
 
-    print("Error: %s" % repr(e))
-    traceback.print_exc()
+    try:
+        summary = eval(test, pred, mread=True, dstype='train', roidir='./')
+        print_results(summary, mread=True)
+    except Exception as e:
+        print("Error: %s" % repr(e))
+        traceback.print_exc()
+
+    return summary
+
+
